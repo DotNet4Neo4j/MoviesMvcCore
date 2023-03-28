@@ -3,6 +3,7 @@
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+    using EnsureThat;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
     using Movies;
@@ -158,10 +159,15 @@
         /// </summary>
         /// <returns>The list of the people who <see cref="Relationships.ActedIn"/> a movie with the Movie title.</returns>
         [HttpGet("actors")]
-        public async Task<ActionResult<IEnumerable<MovieTitleAndActors>>> GetActorNamesByMovie()
+        public async Task<ActionResult<IEnumerable<MovieTitleAndRelatedPeople>>> GetActorNamesByMovie()
         {
-            var query = @$"MATCH (m:{Movie.Labels})<-[:{Relationships.ActedIn}]-(p:{Person.Labels}) 
-                           RETURN m.title AS title, COLLECT(p.name) as actors";
+            return (await GetPeopleNamesByRelationshipTypeAndMovie(Relationships.ActedIn)).ToList();
+        }
+
+        private async Task<IEnumerable<MovieTitleAndRelatedPeople>> GetPeopleNamesByRelationshipTypeAndMovie(string relationshipType)
+        {
+            var query = @$"MATCH (m:{Movie.Labels})<-[r:{relationshipType}]-(p:{Person.Labels}) 
+                           RETURN m.title AS title, type(r) AS rel, COLLECT(p.name) AS people";
 
             var session = _driver.AsyncSession();
             var results = await session.ReadTransactionAsync(async tx =>
@@ -169,13 +175,14 @@
                 var cursor = await tx.RunAsync(query);
                 var fetched = await cursor.FetchAsync();
 
-                var output = new List<MovieTitleAndActors>();
+                var output = new List<MovieTitleAndRelatedPeople>();
                 while (fetched)
                 {
-                    var maa = new MovieTitleAndActors
+                    var maa = new MovieTitleAndRelatedPeople
                     {
                         Title = cursor.Current["title"].As<string>(),
-                        Actors = cursor.Current["actors"].As<IEnumerable<string>>()
+                        RelationshipType = cursor.Current["rel"].As<string>(),
+                        People = cursor.Current["people"].As<IEnumerable<string>>()
                     };
                     output.Add(maa);
                     
@@ -184,9 +191,78 @@
 
                 return output;
             });
-
-
+            
             return results.ToList();
+        }
+        
+        /// <summary>
+        ///     GET: api/driver/movie/addPerson/name/born
+        /// </summary>
+        /// <param name="name">The name of the <see cref="Person"/> to add.</param>
+        /// <param name="born">The birth year of the <see cref="Person"/> to add.</param>
+        /// <returns>The <see cref="Person"/> that was added.</returns>
+        [HttpGet("addPerson/{name}/{born}")]
+        public async Task<Person> AddPerson(string name, int? born)
+        {
+            Ensure.That(name).IsNotEmptyOrWhiteSpace();
+            var person = new Person { Name = name, Born = born };
+
+            var query = Neo4jDriverExtraExtensions.MergePerson(null, person);
+
+            var session = _driver.AsyncSession();
+            await session.ExecuteWriteAsync(work => work.RunAsync(query));
+
+            return person;
+        }
+
+        /// <summary>
+        ///     GET: api/driver/movie/addPersonToMovie/MOVIE-TITLE/RELATIONSHIP/NAME/BORN
+        /// </summary>
+        /// <remarks>
+        /// Using GET here really to simplify how you can call this from a browser - this *should* be a POST, and we would
+        /// be using a <see cref="Person"/> object as a parameter instead of just strings.
+        /// </remarks>
+        /// <param name="movieTitle">The title of the <see cref="Movie"/> to add the <see cref="Person"/> to.</param>
+        /// <param name="relationship">The relationship type to create.</param>
+        /// <param name="name">The name of the <see cref="Person"/> to add.</param>
+        /// <returns>The list of the people who have the <paramref name="relationship"/> with any <see cref="Movie"/>.</returns>
+        [HttpGet("addPersonToMovie/{movieTitle}/{relationship}/{name}")]
+        public async Task<IEnumerable<MovieTitleAndRelatedPeople>> AddPerson(string movieTitle, string relationship, string name)
+        {
+            Ensure.That(movieTitle).IsNotEmptyOrWhiteSpace();
+            Ensure.That(relationship).IsNotEmptyOrWhiteSpace();
+            Ensure.That(name).IsNotEmptyOrWhiteSpace();
+
+            //NB - there is no difference between Neo4j.Driver and Neo4j.Driver.Extensions as the extensions are all based around READ, not WRITE methods.
+            var person = new Person { Name = name };
+
+            var query = new Query(@$"MATCH (m:{Movie.Labels})
+                                          WHERE m.title = $movieTitle", new {movieTitle})
+                .MergePerson(person)
+                .AddToQuery($"MERGE (m)<-[:{relationship}]-(p)");
+
+            var session = _driver.AsyncSession();
+            await session.ExecuteWriteAsync(work => work.RunAsync(query));
+            
+            return await GetPeopleNamesByRelationshipTypeAndMovie(relationship);
+        }
+    }
+
+    public static class Neo4jDriverExtraExtensions
+    {
+        public static Query MergePerson(this Query query, Person person, string parameterName = "person")
+        {
+            var mergeQuery = @$"MERGE (p:{Person.Labels} {{ name:${parameterName}.name}})
+                                ON CREATE SET p = ${parameterName}";
+
+            var parameters = query?.Parameters ?? new Dictionary<string, object>();
+            parameters.Add(parameterName, person);
+            return new Query($"{query?.Text} {mergeQuery} ", parameters);
+        }
+
+        public static Query AddToQuery(this Query query, string extraQuery)
+        {
+            return new Query($"{query?.Text} {extraQuery}", query?.Parameters);
         }
     }
 }

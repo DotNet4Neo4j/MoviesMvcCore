@@ -22,19 +22,23 @@
         public static string Labels => nameof(Movie);
     }
 
-    public class MovieTitleAndActors
+    public class MovieTitleAndRelatedPeople
     {
         [JsonProperty("title")]
         [Neo4jProperty(Name = "title")]
         public string Title { get; set; }
 
+        [JsonProperty("relationshipType")]
+        [Neo4jProperty(Name = "relationshipType")]
+        public string RelationshipType { get; set; }
+
         [JsonProperty("actors")]
         [Neo4jProperty(Name = "actors")]
-        public IEnumerable<string> Actors { get; set; }
+        public IEnumerable<string> People { get; set; }
 
         public override string ToString()
         {
-            return $"{Title} - {string.Join(",", Actors)}";
+            return $"{Title} - {string.Join(",", People)}";
         }
     }
 }
