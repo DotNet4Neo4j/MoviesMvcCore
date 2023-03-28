@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Ensure.That" Version="10.1.0" />
+    <PackageReference Include="Neo4j.Driver.Extensions" Version="1.0.14" />
+    <PackageReference Include="Neo4j.Driver.Signed" Version="5.6.0" />
+    <PackageReference Include="Neo4jClient" Version="5.1.6" />
+  </ItemGroup>
+
+</Project>
