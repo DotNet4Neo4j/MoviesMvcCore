@@ -65,3 +65,16 @@ This gets all the actors by Movie (i.e. Title + List of Actors)
 This gets all the actors by for a specific Movie
 
 * `/<controller-specific-api>/actors/The%20Matrix`
+
+## Add Person (`addPerson/<name>/<born>`)
+
+This will add a new person into the database, or update an existing one.
+
+* `/controller-specific-api/addPerson/Charlotte%20Skardon/1991`
+
+## Add Person To Movie (`addPersonToMovie/<movieTitle>/<relationship>/<personName>`)
+
+This will add a new Person into the database, and then a relationship between that Person and a Movie.
+It will create a new Person if they are not already in the database.
+
+* `/controller-specific-api/addPersonToMovie/The%20Matrix/WATCHED/Charlotte%20Skardon`
