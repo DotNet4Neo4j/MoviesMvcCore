@@ -96,7 +96,7 @@
                 {
                     Title = title.As<string>(),
                     RelationshipType = rel.As<string>(),
-                    People = people.As<IEnumerable<string>>()
+                    People = people.As<List<string>>()
                 })
                 .ResultsAsync;
 
