@@ -182,7 +182,7 @@
                     {
                         Title = cursor.Current["title"].As<string>(),
                         RelationshipType = cursor.Current["rel"].As<string>(),
-                        People = cursor.Current["people"].As<IEnumerable<string>>()
+                        People = cursor.Current["people"].As<List<string>>()
                     };
                     output.Add(maa);
                     
@@ -235,12 +235,12 @@
 
             //NB - there is no difference between Neo4j.Driver and Neo4j.Driver.Extensions as the extensions are all based around READ, not WRITE methods.
             var person = new Person { Name = name };
-
+            
             var query = new Query(@$"MATCH (m:{Movie.Labels})
                                           WHERE m.title = $movieTitle", new {movieTitle})
                 .MergePerson(person)
                 .AddToQuery($"MERGE (m)<-[:{relationship}]-(p)");
-
+            
             var session = _driver.AsyncSession();
             await session.ExecuteWriteAsync(work => work.RunAsync(query));
             
@@ -252,7 +252,7 @@
     {
         public static Query MergePerson(this Query query, Person person, string parameterName = "person")
         {
-            var mergeQuery = @$"MERGE (p:{Person.Labels} {{ name:${parameterName}.name}})
+            var mergeQuery = @$"MERGE (p:{Person.Labels} {{ name:${parameterName}.{nameof(Person.Name)}}})
                                 ON CREATE SET p = ${parameterName}";
 
             var parameters = query?.Parameters ?? new Dictionary<string, object>();
@@ -263,6 +263,11 @@
         public static Query AddToQuery(this Query query, string extraQuery)
         {
             return new Query($"{query?.Text} {extraQuery}", query?.Parameters);
+        }
+
+        public static IExecutableQuery<IRecord, IRecord> ExecutableQuery(this IDriver driver, Query query)
+        {
+            return driver.ExecutableQuery(query.Text).WithParameters(query.Parameters);
         }
     }
 }

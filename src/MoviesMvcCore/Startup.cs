@@ -8,6 +8,8 @@ namespace MoviesMvcCore
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.Logging;
     using Neo4j.Driver;
+    using Neo4j.Driver.Mapping;
+    using Neo4j.Driver.Mapping.ConventionTranslation;
     using Neo4jClient;
 
     public class Startup
@@ -44,6 +46,8 @@ namespace MoviesMvcCore
                     Configuration["Neo4j:Pass"]),
                 config => config.WithLogger(logger)
             );
+            
+            RecordObjectMapping.TranslateIdentifiers(IdentifierCaseConvention.CSharpIdentifier, FieldCaseConvention.CamelCase);
             return driver;
         }
 

@@ -41,10 +41,15 @@
         [MappingSource("relationshipType")]
         public string RelationshipType { get; set; }
 
-        [JsonProperty("actors")]
-        [Neo4jProperty(Name = "actors")]
-        [MappingSource("actors")]
-        public IEnumerable<string> People { get; set; }
+        /// <summary>
+        /// Gets or sets the list of people associated with a <see cref="Title"/>.
+        /// </summary>
+        /// <remarks>This property is a <c>List{T}</c> because the object mapping in the
+        /// driver needs an instance class to create.</remarks>
+        [JsonProperty("people")]
+        [Neo4jProperty(Name = "people")]
+        [MappingSource("people")]
+        public List<string> People { get; set; }
 
         public override string ToString()
         {
